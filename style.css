@@ -93,21 +93,44 @@ h1 {
     color: var(--text-color);
     padding: 10px 20px;
     border-radius: 8px;
-    font-size: 1.5em;
-    margin-bottom: 20px;
+    margin: 20px 0;
     text-align: center;
+    font-size: 1.5em;
 }
 
 .stCard {
     background-color: var(--card-background-color);
-    color: var(--text-color);
     padding: 20px;
-    border-radius: 12px;
+    border-radius: 8px;
     box-shadow: 0 4px 8px var(--box-shadow-color);
-    margin-bottom: 20px;
+    margin: 20px 0;
+}
+
+.stCard h2 {
+    margin-top: 0;
+    font-size: 1.2em;
+}
+
+.stCard p {
+    margin: 10px 0;
+}
+
+.stPieChart {
+    margin: 40px 0;
 }
 
 .stQRCode {
-    text-align: center;
-    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.stImage {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.stPlotlyChart {
+    margin-top: -40px;
 }

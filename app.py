@@ -6,6 +6,9 @@ import qrcode
 from PIL import Image
 from io import BytesIO
 
+# Set page title, tab title, and icon
+st.set_page_config(page_title="Supply Chain with Blockchain", page_icon="🔗")
+
 # Replace with your own Etherscan API key
 ETHERSCAN_API_KEY = '72ZYQBUT6BKEG7TTJ3EDEV1TW7WEKWKW6I'
 

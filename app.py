@@ -16,13 +16,17 @@ SMART_CONTRACTS = {
     'PAPAYA': '0x93688eB37df5479d15034F9d0e20F07c3eAd3Ad1'
 }
 
-# Mapping of Ethereum addresses to supply chain roles
+# Detailed mapping of Ethereum addresses to supply chain roles
 ADDRESS_TO_ROLE = {
-    '0x...farmer_address...': 'Farmer',
-    '0x...aggregator_address...': 'Aggregator',
-    '0x...distributor_address...': 'Distributor',
-    '0x...consumer_address...': 'Consumer',
-    # Add more mappings as needed
+    '0xd5523fdb700a9e836dcaf1110e365e803eae71aa': 'Produsen Banana',
+    '0x488fd778a4c1a866a6ca6c05a4e1e00d8cf7f8da': 'Produsen Dragon Fruit',
+    '0xbd4be1bd11cd18513b3dd44cf2ad7f1c9b762c8a': 'Produsen Papaya',
+    '0x81c1fabd59c68c5b919a547b951a2a600c979fba': 'Distributor A',
+    '0xbe886552107a1c26eea37c0af1c6108e0b5f35ab': 'Distributor B',
+    '0x49C15E463C690098d149F2fb90117fE706100d43': 'Supermarket A',
+    '0x2722199d3d31088d74d9c8d864ef806db4cc5f76': 'Supermarket B',
+    '0x24d61ba1903f4c39d80f407a8696e4adf0081246': 'Retail 1',
+    '0xca0c515f6e6d75306c0e312ee11d0873d6133866': 'Retail 2',
 }
 
 def get_transactions(token_address, api_key):
@@ -46,64 +50,76 @@ def generate_qr_code(data):
     return img
 
 # Load CSS file
-with open("style.css") as f:
+with open("style.css", "r", encoding="utf-8") as f:
     st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+# Load JavaScript file
+with open("script.js", "r", encoding="utf-8") as f:
+    st.markdown(f"<script>{f.read()}</script>", unsafe_allow_html=True)
 
 st.title('Etherscan Token Transactions Viewer')
 
 # Dropdown menu for selecting smart contract
-selected_contract = st.selectbox('Select a Smart Contract', list(SMART_CONTRACTS.keys()))
-token_address = SMART_CONTRACTS.get(selected_contract)
+contract_options = ['None'] + list(SMART_CONTRACTS.keys())
+selected_contract = st.selectbox('Select a Smart Contract', contract_options)
+token_address = SMART_CONTRACTS.get(selected_contract) if selected_contract != 'None' else None
 
 if token_address:
-    transactions_data = get_transactions(token_address, ETHERSCAN_API_KEY)
+    if st.button('Show Transaction Details'):
+        transactions_data = get_transactions(token_address, ETHERSCAN_API_KEY)
 
-    if transactions_data and transactions_data.get('status') == '1':
-        transactions = transactions_data['result']
-        st.write(f"Total Transactions: {len(transactions)}")
+        if transactions_data and transactions_data.get('status') == '1':
+            transactions = transactions_data['result']
+            st.write(f"Total Transactions: {len(transactions)}")
 
-        # Prepare data for the chart
-        transactions_df = pd.DataFrame(transactions)
-        transactions_df['timeStamp'] = pd.to_datetime(transactions_df['timeStamp'], unit='s')
-        transactions_df['value'] = transactions_df['value'].astype(float)
+            # Prepare data for the chart
+            transactions_df = pd.DataFrame(transactions)
+            transactions_df['timeStamp'] = pd.to_datetime(transactions_df['timeStamp'], unit='s')
+            transactions_df['value'] = transactions_df['value'].astype(float)
 
-        # Rename 'from' and 'to' columns to avoid conflicts
-        transactions_df.rename(columns={'from': 'from_address', 'to': 'to_address'}, inplace=True)
+            # Rename 'from' and 'to' columns to avoid conflicts
+            transactions_df.rename(columns={'from': 'from_address', 'to': 'to_address'}, inplace=True)
 
-        # Format the timestamp
-        transactions_df['formatted_timeStamp'] = transactions_df['timeStamp'].dt.strftime('%b-%d-%Y %I:%M:%S %p UTC')
+            # Format the timestamp
+            transactions_df['formatted_timeStamp'] = transactions_df['timeStamp'].dt.strftime('%b-%d-%Y %I:%M:%S %p UTC')
 
-        # Map addresses to supply chain roles
-        transactions_df['from_address'] = transactions_df['from_address'].map(ADDRESS_TO_ROLE).fillna(transactions_df['from_address'])
-        transactions_df['to_address'] = transactions_df['to_address'].map(ADDRESS_TO_ROLE).fillna(transactions_df['to_address'])
+            # Map addresses to supply chain roles
+            transactions_df['from_role'] = transactions_df['from_address'].map(ADDRESS_TO_ROLE).fillna('Unknown')
+            transactions_df['to_role'] = transactions_df['to_address'].map(ADDRESS_TO_ROLE).fillna('Unknown')
 
-        # Display transaction details
-        for tx in transactions_df.itertuples():
-            st.write(f"Hash: {tx.hash}")
-            st.write(f"From: {tx.from_address} (Role: {ADDRESS_TO_ROLE.get(tx.from_address, 'Unknown')})")
-            st.write(f"To: {tx.to_address} (Role: {ADDRESS_TO_ROLE.get(tx.to_address, 'Unknown')})")
-            st.write(f"Value: {tx.value}")
-            st.write(f"Token Symbol: {tx.tokenSymbol}")
-            st.write(f"Timestamp: {tx.formatted_timeStamp}")
-            st.write('---')
+            # Display transaction details
+            st.markdown('<div class="stHeader">Transaction Details</div>', unsafe_allow_html=True)
+            for tx in transactions_df.itertuples():
+                st.markdown(f'''
+                    <div class="stCard">
+                        <h2>Transaction Hash: {tx.hash}</h2>
+                        <p>From: {tx.from_role}</p>
+                        <p>To: {tx.to_role}</p>
+                        <p>Value: {str(tx.value).rstrip('0').rstrip('.') + ' buah'}</p>
+                        <p>Token Symbol: {tx.tokenSymbol}</p>
+                        <p>Timestamp: {tx.formatted_timeStamp}</p>
+                    </div>
+                ''', unsafe_allow_html=True)
 
-        # Aggregate the token holdings by 'to_address'
-        holders_df = transactions_df.groupby('to_address')['value'].sum().reset_index()
-        holders_df = holders_df.rename(columns={'to_address': 'Role', 'value': 'Total Tokens'})
+            # Aggregate the token holdings by 'to_role'
+            holders_df = transactions_df.groupby('to_role')['value'].sum().reset_index()
+            holders_df = holders_df.rename(columns={'to_role': 'Role', 'value': 'Total Tokens'})
 
-        # Plotly pie chart
-        fig_pie = px.pie(holders_df, values='Total Tokens', names='Role', title='Token Distribution Among Holders')
-        st.plotly_chart(fig_pie)
+            # Plotly pie chart
+            fig = px.pie(holders_df, values='Total Tokens', names='Role', title='Token Distribution among Holders')
+            st.plotly_chart(fig)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-        # Generate QR code for the selected contract
-        etherscan_url = f"https://sepolia.etherscan.io/token/{token_address}"
-        qr_code_img = generate_qr_code(etherscan_url)
-        buffer = BytesIO()
-        qr_code_img.save(buffer, format="PNG")
-        st.image(buffer.getvalue(), caption=f'QR Code for {selected_contract}', use_column_width=True)
-
-    else:
-        st.error('Failed to retrieve transactions or no transactions found.')
-
+            # Generate QR Code for the token address
+            qr_code = generate_qr_code(token_address)
+            buffer = BytesIO()
+            qr_code.save(buffer, format="PNG")
+            st.markdown('<div class="stQRCode">', unsafe_allow_html=True)
+            st.image(buffer.getvalue(), use_column_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            st.error('Failed to fetch transactions. Please try again later.')
+elif selected_contract == 'None':
+    st.info('Please select a smart contract to view transaction details.')
 else:
-    st.warning("Please select a Smart Contract from the dropdown to view transactions.")
+    st.error('Invalid token address selected.')

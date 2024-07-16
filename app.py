@@ -37,7 +37,7 @@ def get_transactions(token_address, api_key):
     else:
         return None
 
-def generate_qr_code(data):
+def generate_qr_code(data, size=200):
     qr = qrcode.QRCode(
         version=1,
         error_correction=qrcode.constants.ERROR_CORRECT_L,
@@ -47,6 +47,7 @@ def generate_qr_code(data):
     qr.add_data(data)
     qr.make(fit=True)
     img = qr.make_image(fill='black', back_color='white')
+    img = img.resize((size, size))  # Resize QR Code to desired size
     return img
 
 # Load CSS file
@@ -87,6 +88,28 @@ if token_address:
             transactions_df['from_role'] = transactions_df['from_address'].map(ADDRESS_TO_ROLE).fillna('Unknown')
             transactions_df['to_role'] = transactions_df['to_address'].map(ADDRESS_TO_ROLE).fillna('Unknown')
 
+            # Generate QR Code for the token address
+            etherscan_url = f"https://sepolia.etherscan.io/token/{token_address}"
+            qr_code = generate_qr_code(etherscan_url, size=200)
+            buffer_qr = BytesIO()
+            qr_code.save(buffer_qr, format="PNG")
+            
+            # Aggregate the token holdings by 'to_role'
+            holders_df = transactions_df.groupby('to_role')['value'].sum().reset_index()
+            holders_df = holders_df.rename(columns={'to_role': 'Role', 'value': 'Total Tokens'})
+
+            # Plotly pie chart
+            fig = px.pie(holders_df, values='Total Tokens', names='Role', title='Token Distribution among Holders')
+            
+            # Create two columns for QR Code and Pie Chart
+            col1, col2 = st.columns([1, 2])
+
+            with col1:
+                st.image(buffer_qr.getvalue(), use_column_width=True)
+
+            with col2:
+                st.plotly_chart(fig, use_container_width=True)
+
             # Display transaction details
             st.markdown('<div class="stHeader">Transaction Details</div>', unsafe_allow_html=True)
             for tx in transactions_df.itertuples():
@@ -101,24 +124,6 @@ if token_address:
                     </div>
                 ''', unsafe_allow_html=True)
 
-            # Aggregate the token holdings by 'to_role'
-            holders_df = transactions_df.groupby('to_role')['value'].sum().reset_index()
-            holders_df = holders_df.rename(columns={'to_role': 'Role', 'value': 'Total Tokens'})
-
-            # Plotly pie chart
-            fig = px.pie(holders_df, values='Total Tokens', names='Role', title='Token Distribution among Holders')
-            st.plotly_chart(fig)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            # Generate QR Code for the token address
-            qr_code = generate_qr_code(token_address)
-            buffer = BytesIO()
-            qr_code.save(buffer, format="PNG")
-            st.markdown('<div class="stQRCode">', unsafe_allow_html=True)
-            st.image(buffer.getvalue(), use_column_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-        else:
-            st.error('Failed to fetch transactions. Please try again later.')
 elif selected_contract == 'None':
     st.info('Please select a smart contract to view transaction details.')
 else:

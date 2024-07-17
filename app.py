@@ -26,10 +26,11 @@ ADDRESS_TO_ROLE = {
     '0xbd4be1bd11cd18513b3dd44cf2ad7f1c9b762c8a': 'Produsen Papaya',
     '0x81c1fabd59c68c5b919a547b951a2a600c979fba': 'Distributor A',
     '0xbe886552107a1c26eea37c0af1c6108e0b5f35ab': 'Distributor B',
-    '0x49C15E463C690098d149F2fb90117fE706100d43': 'Supermarket A',
+    '0x49c15e463c690098d149f2fb90117fe706100d43': 'Supermarket A',
     '0x2722199d3d31088d74d9c8d864ef806db4cc5f76': 'Supermarket B',
     '0x24d61ba1903f4c39d80f407a8696e4adf0081246': 'Retail 1',
     '0xca0c515f6e6d75306c0e312ee11d0873d6133866': 'Retail 2',
+    '0x13a4667ce9a4dcb01b16215fdfbf145622fc3eb5': 'Restaurant A',  # Lowercased address
 }
 
 def get_transactions(token_address, api_key):
@@ -61,6 +62,7 @@ with open("style.css", "r", encoding="utf-8") as f:
 with open("script.js", "r", encoding="utf-8") as f:
     st.markdown(f"<script>{f.read()}</script>", unsafe_allow_html=True)
 
+# Page title
 st.title('Etherscan Token Transactions Viewer')
 
 # Dropdown menu for selecting smart contract
@@ -79,10 +81,14 @@ if token_address:
             # Prepare data for the chart
             transactions_df = pd.DataFrame(transactions)
             transactions_df['timeStamp'] = pd.to_datetime(transactions_df['timeStamp'], unit='s')
-            transactions_df['value'] = transactions_df['value'].astype(float)
+            transactions_df['value'] = transactions_df['value'].astype(float) / 10**1  # Adjust for 1 decimal place
 
             # Rename 'from' and 'to' columns to avoid conflicts
             transactions_df.rename(columns={'from': 'from_address', 'to': 'to_address'}, inplace=True)
+
+            # Normalize the case of addresses
+            transactions_df['from_address'] = transactions_df['from_address'].str.lower()
+            transactions_df['to_address'] = transactions_df['to_address'].str.lower()
 
             # Format the timestamp
             transactions_df['formatted_timeStamp'] = transactions_df['timeStamp'].dt.strftime('%b-%d-%Y %I:%M:%S %p UTC')
@@ -115,17 +121,20 @@ if token_address:
 
             # Display transaction details
             st.markdown('<div class="stHeader">Transaction Details</div>', unsafe_allow_html=True)
+            st.markdown('<div class="stTransactionDetails">', unsafe_allow_html=True)
             for tx in transactions_df.itertuples():
+                value_display = "{:,.1f} buah".format(tx.value)  # Format the value with commas and one decimal place
                 st.markdown(f'''
                     <div class="stCard">
                         <h2>Transaction Hash: {tx.hash}</h2>
                         <p>From: {tx.from_role}</p>
                         <p>To: {tx.to_role}</p>
-                        <p>Value: {str(tx.value).rstrip('0').rstrip('.') + ' buah'}</p>
+                        <p>Value: {value_display}</p>
                         <p>Token Symbol: {tx.tokenSymbol}</p>
                         <p>Timestamp: {tx.formatted_timeStamp}</p>
                     </div>
                 ''', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
 elif selected_contract == 'None':
     st.info('Please select a smart contract to view transaction details.')

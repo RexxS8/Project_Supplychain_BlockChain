@@ -30,7 +30,9 @@ ADDRESS_TO_ROLE = {
     '0x2722199d3d31088d74d9c8d864ef806db4cc5f76': 'Supermarket B',
     '0x24d61ba1903f4c39d80f407a8696e4adf0081246': 'Retail 1',
     '0xca0c515f6e6d75306c0e312ee11d0873d6133866': 'Retail 2',
-    '0x13a4667ce9a4dcb01b16215fdfbf145622fc3eb5': 'Restaurant A',  # Lowercased address
+    '0x13a4667ce9a4dcb01b16215fdfbf145622fc3eb5': 'Restaurant A',
+    '0x3408c665f2298d7cafcbd4350d67d2833264b294': 'Restaurant B',
+    '0x0000000000000000000000000000000000000000': 'Minting/Burn',
 }
 
 def get_transactions(token_address, api_key):

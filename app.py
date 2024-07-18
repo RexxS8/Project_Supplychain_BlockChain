@@ -5,6 +5,8 @@ import pandas as pd
 import qrcode
 from PIL import Image
 from io import BytesIO
+from datetime import datetime, timedelta
+import pytz
 
 # Set page title, tab title, and icon
 st.set_page_config(page_title="Supply Chain with Blockchain", page_icon="🔗")
@@ -35,6 +37,22 @@ ADDRESS_TO_ROLE = {
     '0x0000000000000000000000000000000000000000': 'Minting/Burn',
 }
 
+# Smart contract creators and their proof hashes
+CONTRACT_CREATORS = {
+    'BANANA': {
+        'creator': 'Produsen Banana',
+        'hash': '0x0fb39897123a03c085456a7cc56bd98d516e6ba8249c5d1bef17256da6e82c4d'
+    },
+    'DRAGON FRUIT': {
+        'creator': 'Produsen Dragon Fruit',
+        'hash': '0x4d24a4856a563df259cbcdc2a6b61fa8c097998831af4af93ae4e94776c7ea89'
+    },
+    'PAPAYA': {
+        'creator': 'Produsen Papaya',
+        'hash': '0xf3fda77d6a88a8e54973632bd943de63d8e913dddf35ddd5b307afc42965c547'
+    }
+}
+
 def get_transactions(token_address, api_key):
     url = f'https://api-sepolia.etherscan.io/api?module=account&action=tokentx&contractaddress={token_address}&apikey={api_key}'
     response = requests.get(url)
@@ -55,6 +73,15 @@ def generate_qr_code(data, size=200):
     img = qr.make_image(fill='black', back_color='white')
     img = img.resize((size, size))  # Resize QR Code to desired size
     return img
+
+# Function to convert UTC to WIB
+def convert_to_wib(utc_time):
+    utc = pytz.utc
+    wib = pytz.timezone('Asia/Jakarta')
+    utc_dt = utc.localize(utc_time)
+    wib_dt = utc_dt.astimezone(wib)
+    formatted_time = wib_dt.strftime('%b-%d-%Y %I:%M:%S %p')
+    return formatted_time
 
 # Load CSS file
 with open("style.css", "r", encoding="utf-8") as f:
@@ -80,6 +107,14 @@ if token_address:
             transactions = transactions_data['result']
             st.write(f"Total Transactions: {len(transactions)}")
 
+             # Display smart contract creator information
+            creator_info = CONTRACT_CREATORS.get(selected_contract, {})
+            st.write(f"**Creator Smart Contract {selected_contract}**")
+            st.write(f"- **Creator:** {creator_info.get('creator')}")
+            st.write(f"- **Proof Hash:** {creator_info.get('hash')}")
+            st.write(f"")
+            st.write(f"")
+
             # Prepare data for the chart
             transactions_df = pd.DataFrame(transactions)
             transactions_df['timeStamp'] = pd.to_datetime(transactions_df['timeStamp'], unit='s')
@@ -92,8 +127,8 @@ if token_address:
             transactions_df['from_address'] = transactions_df['from_address'].str.lower()
             transactions_df['to_address'] = transactions_df['to_address'].str.lower()
 
-            # Format the timestamp
-            transactions_df['formatted_timeStamp'] = transactions_df['timeStamp'].dt.strftime('%b-%d-%Y %I:%M:%S %p UTC')
+            # Convert timestamp to WIB and format it
+            transactions_df['formatted_timeStamp'] = transactions_df['timeStamp'].apply(convert_to_wib)
 
             # Map addresses to supply chain roles
             transactions_df['from_role'] = transactions_df['from_address'].map(ADDRESS_TO_ROLE).fillna('Unknown')
@@ -126,19 +161,40 @@ if token_address:
             st.markdown('<div class="stTransactionDetails">', unsafe_allow_html=True)
             for tx in transactions_df.itertuples():
                 value_display = "{:,.1f} buah".format(tx.value)  # Format the value with commas and one decimal place
+                transaction_link = f"https://sepolia.etherscan.io/tx/{tx.hash}"
+                
+                # Fetch transaction details for block confirmations
+                block_details_url = f"https://api-sepolia.etherscan.io/api?module=proxy&action=eth_getTransactionReceipt&txhash={tx.hash}&apikey={ETHERSCAN_API_KEY}"
+                block_response = requests.get(block_details_url)
+                if block_response.status_code == 200:
+                    block_data = block_response.json()
+                    if block_data.get('status') == '1':
+                        block_number = int(block_data['result']['blockNumber'], 16)
+                        latest_block_url = f"https://api-sepolia.etherscan.io/api?module=proxy&action=eth_blockNumber&apikey={ETHERSCAN_API_KEY}"
+                        latest_block_response = requests.get(latest_block_url)
+                        if latest_block_response.status_code == 200:
+                            latest_block_data = latest_block_response.json()
+                            latest_block_number = int(latest_block_data['result'], 16)
+                            confirmations = latest_block_number - block_number
+                        else:
+                            confirmations = "N/A"
+                    else:
+                        confirmations = "N/A"
+                else:
+                    confirmations = "N/A"
+
+                # Display transaction details with block confirmations
                 st.markdown(f'''
                     <div class="stCard">
-                        <h2>Transaction Hash: {tx.hash}</h2>
+                        <h2>Transaction Hash: <a href="{transaction_link}" target="_blank">{tx.hash}</a></h2>
                         <p>From: {tx.from_role}</p>
                         <p>To: {tx.to_role}</p>
                         <p>Value: {value_display}</p>
                         <p>Token Symbol: {tx.tokenSymbol}</p>
-                        <p>Timestamp: {tx.formatted_timeStamp}</p>
+                        <p>Time: {tx.formatted_timeStamp}</p>
+                        <p>Confirmations: {confirmations}</p>
                     </div>
                 ''', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
-
-elif selected_contract == 'None':
-    st.info('Please select a smart contract to view transaction details.')
-else:
-    st.error('Invalid token address selected.')
+        else:
+            st.write('Error fetching transactions')

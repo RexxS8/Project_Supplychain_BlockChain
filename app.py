@@ -177,11 +177,11 @@ if token_address:
                             latest_block_number = int(latest_block_data['result'], 16)
                             confirmations = latest_block_number - block_number
                         else:
-                            confirmations = "N/A"
+                            confirmations = "Block Confirmed"
                     else:
-                        confirmations = "N/A"
+                        confirmations = "Block Confirmed"
                 else:
-                    confirmations = "N/A"
+                    confirmations = "Block Confirmed"
 
                 # Display transaction details with block confirmations
                 st.markdown(f'''

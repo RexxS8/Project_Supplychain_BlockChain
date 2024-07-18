@@ -4,6 +4,7 @@
     --header-color: #8a2be2; /* Warna header violet */
     --button-background-color: #9370db; /* Warna button violet */
     --button-hover-background-color: #7b68ee; /* Warna hover button violet */
+    --button-text-color: #ffffff; /* Warna text button putih */
     --warning-background-color: #f39c12;
     --error-background-color: #e74c3c;
     --card-background-color: #ffffff;
@@ -17,6 +18,7 @@
         --header-color: #dda0dd; /* Warna header violet terang */
         --button-background-color: #9370db;
         --button-hover-background-color: #7b68ee;
+        --button-text-color: #ffffff; /* Warna text button putih */
         --warning-background-color: #d35400;
         --error-background-color: #c0392b;
         --card-background-color: #444;

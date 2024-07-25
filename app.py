@@ -163,8 +163,8 @@ if token_address:
             for tx in transactions_df.itertuples():
                 value_display = "{:,.1f}".format(tx.value)
                 st.markdown(f'<div class="stTransactionItem">'
-                            f'<b>From:</b> ({tx.from_role})<br>'
-                            f'<b>To:</b> ({tx.to_role})<br>'
+                            f'<b>From:</b> {tx.from_role}<br>'
+                            f'<b>To:</b> {tx.to_role}<br>'
                             f'<b>Value:</b> {value_display} Tokens<br>'
                             f'<b>Timestamp:</b> {tx.formatted_timeStamp}<br>'
                             f'<b>Transaction Hash:</b> {tx.hash}'

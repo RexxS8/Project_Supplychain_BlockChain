@@ -162,17 +162,20 @@ if token_address:
             st.markdown('<div class="stTransactionDetails">', unsafe_allow_html=True)
             for tx in transactions_df.itertuples():
                 value_display = "{:,.1f}".format(tx.value)
-                st.markdown(
-                    f"<div class='transaction'><strong>Hash:</strong> {tx.hash}<br>"
-                    f"<strong>From:</strong> {tx.from_role} ({tx.from_address})<br>"
-                    f"<strong>To:</strong> {tx.to_role} ({tx.to_address})<br>"
-                    f"<strong>Value:</strong> {value_display} {selected_contract}<br>"
-                    f"<strong>Timestamp:</strong> {tx.formatted_timeStamp}</div>",
-                    unsafe_allow_html=True
-                )
+                st.markdown(f'<div class="stTransactionItem">'
+                            f'<b>From:</b> {tx.from_address} ({tx.from_role})<br>'
+                            f'<b>To:</b> {tx.to_address} ({tx.to_role})<br>'
+                            f'<b>Value:</b> {value_display} Tokens<br>'
+                            f'<b>Timestamp:</b> {tx.formatted_timeStamp}<br>'
+                            f'<b>Transaction Hash:</b> {tx.hash}'
+                            f'</div>', unsafe_allow_html=True)
+                # Generate and display QR code for the transaction hash
+                tx_qr_code = generate_qr_code(f"https://sepolia.etherscan.io/tx/{tx.hash}", size=100)
+                buffer_tx_qr = BytesIO()
+                tx_qr_code.save(buffer_tx_qr, format="PNG")
+                st.image(buffer_tx_qr.getvalue(), use_column_width=False)
+                st.markdown('<hr>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
         else:
-            st.error('Failed to retrieve transactions. Please try again later or check the smart contract address.')
-else:
-    st.warning('Please select a smart contract to view transaction details.')
+            st.write('No transactions found or error retrieving data.')

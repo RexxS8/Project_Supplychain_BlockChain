@@ -18,14 +18,4 @@ document.addEventListener("DOMContentLoaded", function() {
             transactionDetails.scrollLeft = transactionDetails.scrollWidth;
         });
     }
-
-    // Tambahan: Scroll ke kanan saat pengguna menekan tombol
-    const showDetailsButton = document.querySelector(".stButton button");
-    if (showDetailsButton) {
-        showDetailsButton.addEventListener("click", function() {
-            setTimeout(() => {
-                transactionDetails.scrollLeft = transactionDetails.scrollWidth;
-            }, 500); // Menunggu 500ms agar transaksi baru dimuat
-        });
-    }
 });

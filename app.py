@@ -164,37 +164,35 @@ if token_address:
                 transaction_link = f"https://sepolia.etherscan.io/tx/{tx.hash}"
                 
                 # Fetch transaction details for block confirmations
-                block_details_url = f"https://api-sepolia.etherscan.io/api?module=proxy&action=eth_getTransactionReceipt&txhash={tx.hash}&apikey={ETHERSCAN_API_KEY}"
-                block_response = requests.get(block_details_url)
-                if block_response.status_code == 200:
-                    block_data = block_response.json()
-                    if block_data.get('status') == '1':
-                        block_number = int(block_data['result']['blockNumber'], 16)
-                        latest_block_url = f"https://api-sepolia.etherscan.io/api?module=proxy&action=eth_blockNumber&apikey={ETHERSCAN_API_KEY}"
-                        latest_block_response = requests.get(latest_block_url)
-                        if latest_block_response.status_code == 200:
-                            latest_block_data = latest_block_response.json()
-                            latest_block_number = int(latest_block_data['result'], 16)
-                            confirmations = latest_block_number - block_number
-                        else:
-                            confirmations = "Block Confirmed"
-                    else:
-                        confirmations = "Block Confirmed"
-                else:
-                    confirmations = "Block Confirmed"
+                block_details_url = f'https://api-sepolia.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash={tx.hash}&apikey={ETHERSCAN_API_KEY}'
+                block_details_response = requests.get(block_details_url)
+                block_details = block_details_response.json()
 
-                # Display transaction details with block confirmations
-                st.markdown(f'''
-                    <div class="stCard">
-                        <h2>Transaction Hash: <a href="{transaction_link}" target="_blank">{tx.hash}</a></h2>
-                        <p>From: {tx.from_role}</p>
-                        <p>To: {tx.to_role}</p>
-                        <p>Value: {value_display}</p>
-                        <p>Token Symbol: {tx.tokenSymbol}</p>
-                        <p>Time: {tx.formatted_timeStamp}</p>
-                        <p>Confirmations: {confirmations}</p>
-                    </div>
-                ''', unsafe_allow_html=True)
+                block_number = block_details['result'].get('blockNumber')
+                latest_block_url = f'https://api-sepolia.etherscan.io/api?module=proxy&action=eth_blockNumber&apikey={ETHERSCAN_API_KEY}'
+                latest_block_response = requests.get(latest_block_url)
+                latest_block = latest_block_response.json()
+
+                if block_number and latest_block.get('result'):
+                    block_number = int(block_number, 16)
+                    latest_block_number = int(latest_block['result'], 16)
+                    block_confirmations = latest_block_number - block_number
+                else:
+                    block_confirmations = 'N/A'
+
+                # Use expander for QR code
+                with st.expander(f"Transaction Hash: {tx.hash}"):
+                    qr_code_tx = generate_qr_code(transaction_link, size=200)
+                    buffer_tx = BytesIO()
+                    qr_code_tx.save(buffer_tx, format="PNG")
+                    st.image(buffer_tx.getvalue(), use_column_width=True)
+                    st.markdown(f'<a href="{transaction_link}" target="_blank">{tx.hash}</a>', unsafe_allow_html=True)
+                    st.write(f"Timestamp: {tx.formatted_timeStamp}")
+                    st.write(f"From: {tx.from_role}")
+                    st.write(f"To: {tx.to_role}")
+                    st.write(f"Value: {value_display}")
+                    st.write(f"Block Confirmations: {block_confirmations}")
+
             st.markdown('</div>', unsafe_allow_html=True)
         else:
-            st.write('Error fetching transactions')
+            st.write('No transactions found or an error occurred.')

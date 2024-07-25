@@ -56,9 +56,9 @@ CONTRACT_CREATORS = {
 def get_transactions(token_address, api_key):
     url = f'https://api-sepolia.etherscan.io/api?module=account&action=tokentx&contractaddress={token_address}&apikey={api_key}'
     response = requests.get(url)
-    if response.status_code == 200:
+    try:
         return response.json()
-    else:
+    except ValueError:
         return None
 
 def generate_qr_code(data, size=200):
@@ -103,7 +103,7 @@ if token_address:
     if st.button('Show Transaction Details'):
         transactions_data = get_transactions(token_address, ETHERSCAN_API_KEY)
 
-        if transactions_data and transactions_data.get('status') == '1':
+        if transactions_data and isinstance(transactions_data, dict) and transactions_data.get('status') == '1':
             transactions = transactions_data['result']
             st.write(f"Total Transactions: {len(transactions)}")
 
@@ -117,6 +117,7 @@ if token_address:
 
             # Prepare data for the chart
             transactions_df = pd.DataFrame(transactions)
+            transactions_df['timeStamp'] = pd.to_numeric(transactions_df['timeStamp'], errors='coerce')
             transactions_df['timeStamp'] = pd.to_datetime(transactions_df['timeStamp'], unit='s')
             transactions_df['value'] = transactions_df['value'].astype(float) / 10**1  # Adjust for 1 decimal place
 
@@ -160,39 +161,18 @@ if token_address:
             st.markdown('<div class="stHeader">Transaction Details</div>', unsafe_allow_html=True)
             st.markdown('<div class="stTransactionDetails">', unsafe_allow_html=True)
             for tx in transactions_df.itertuples():
-                value_display = "{:,.1f} buah".format(tx.value)  # Format the value with commas and one decimal place
-                transaction_link = f"https://sepolia.etherscan.io/tx/{tx.hash}"
-                
-                # Fetch transaction details for block confirmations
-                block_details_url = f'https://api-sepolia.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash={tx.hash}&apikey={ETHERSCAN_API_KEY}'
-                block_details_response = requests.get(block_details_url)
-                block_details = block_details_response.json()
-
-                block_number = block_details['result'].get('blockNumber')
-                latest_block_url = f'https://api-sepolia.etherscan.io/api?module=proxy&action=eth_blockNumber&apikey={ETHERSCAN_API_KEY}'
-                latest_block_response = requests.get(latest_block_url)
-                latest_block = latest_block_response.json()
-
-                if block_number and latest_block.get('result'):
-                    block_number = int(block_number, 16)
-                    latest_block_number = int(latest_block['result'], 16)
-                    block_confirmations = latest_block_number - block_number
-                else:
-                    block_confirmations = 'N/A'
-
-                # Use expander for QR code
-                with st.expander(f"Transaction Hash: {tx.hash}"):
-                    qr_code_tx = generate_qr_code(transaction_link, size=200)
-                    buffer_tx = BytesIO()
-                    qr_code_tx.save(buffer_tx, format="PNG")
-                    st.image(buffer_tx.getvalue(), use_column_width=True)
-                    st.markdown(f'<a href="{transaction_link}" target="_blank">{tx.hash}</a>', unsafe_allow_html=True)
-                    st.write(f"Timestamp: {tx.formatted_timeStamp}")
-                    st.write(f"From: {tx.from_role}")
-                    st.write(f"To: {tx.to_role}")
-                    st.write(f"Value: {value_display}")
-                    st.write(f"Block Confirmations: {block_confirmations}")
-
+                value_display = "{:,.1f}".format(tx.value)
+                st.markdown(
+                    f"<div class='transaction'><strong>Hash:</strong> {tx.hash}<br>"
+                    f"<strong>From:</strong> {tx.from_role} ({tx.from_address})<br>"
+                    f"<strong>To:</strong> {tx.to_role} ({tx.to_address})<br>"
+                    f"<strong>Value:</strong> {value_display} {selected_contract}<br>"
+                    f"<strong>Timestamp:</strong> {tx.formatted_timeStamp}</div>",
+                    unsafe_allow_html=True
+                )
             st.markdown('</div>', unsafe_allow_html=True)
+
         else:
-            st.write('No transactions found or an error occurred.')
+            st.error('Failed to retrieve transactions. Please try again later or check the smart contract address.')
+else:
+    st.warning('Please select a smart contract to view transaction details.')

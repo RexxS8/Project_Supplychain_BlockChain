@@ -41,7 +41,7 @@ h1 {
 
 .stButton>button {
     background-color: var(--button-background-color);
-    color: var(--text-color);
+    color: var(--button-text-color);
     padding: 15px 32px;
     text-align: center;
     text-decoration: none;
@@ -135,4 +135,32 @@ h1 {
 
 .stPlotlyChart {
     margin-top: -40px;
+}
+
+/* Additional Styles */
+.stTransactionDetails {
+    overflow-x: auto;
+    white-space: nowrap;
+}
+
+.stExpander {
+    background-color: var(--card-background-color);
+    padding: 10px;
+    border-radius: 8px;
+    margin: 10px 0;
+    box-shadow: 0 4px 8px var(--box-shadow-color);
+}
+
+.stExpander h2 {
+    margin-top: 0;
+    font-size: 1.2em;
+}
+
+.stExpander p {
+    margin: 10px 0;
+}
+
+.stExpander img {
+    max-width: 100%;
+    height: auto;
 }

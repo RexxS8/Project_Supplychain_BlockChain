@@ -1,6 +1,7 @@
 streamlit
 requests
-pandas
 plotly
-qrcode[pil]
-Pillow
+pandas
+qrcode
+pillow
+pytz

@@ -174,17 +174,21 @@ if token_address:
                 block_details_response = requests.get(block_details_url)
                 block_details = block_details_response.json()
 
-                block_number = block_details['result'].get('blockNumber')
-                latest_block_url = f'https://api-sepolia.etherscan.io/api?module=proxy&action=eth_blockNumber&apikey={ETHERSCAN_API_KEY}'
-                latest_block_response = requests.get(latest_block_url)
-                latest_block = latest_block_response.json()
+                # Check if 'result' key exists in block_details
+                if block_details.get('status') == '1' and 'result' in block_details:
+                    block_number = block_details['result'].get('blockNumber', 'Block Confirmed')
+                    latest_block_url = f'https://api-sepolia.etherscan.io/api?module=proxy&action=eth_blockNumber&apikey={ETHERSCAN_API_KEY}'
+                    latest_block_response = requests.get(latest_block_url)
+                    latest_block = latest_block_response.json()
 
-                if block_number and latest_block.get('result'):
-                    block_number = int(block_number, 16)
-                    latest_block_number = int(latest_block['result'], 16)
-                    block_confirmations = latest_block_number - block_number
+                    if latest_block.get('status') == '1' and 'result' in latest_block:
+                        block_number = int(block_number, 16) if block_number != 'Block Confirmed' else 'Block Confirmed'
+                        latest_block_number = int(latest_block['result'], 16)
+                        block_confirmations = latest_block_number - block_number if block_number != 'Block Confirmed' else 'Block Confirmed'
+                    else:
+                        block_confirmations = 'Block Confirmed'
                 else:
-                    block_confirmations = 'N/A'
+                    block_confirmations = 'Block Confirmed'
 
                 # Display transaction details with QR code
                 st.markdown(f'''

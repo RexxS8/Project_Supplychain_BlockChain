@@ -6,3 +6,4 @@ qrcode[pil]
 Pillow
 pytz
 matplotlib
+beautifulsoup4

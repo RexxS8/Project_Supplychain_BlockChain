@@ -3,6 +3,7 @@ import qrcode
 from io import BytesIO
 import requests
 from PIL import Image
+import matplotlib.pyplot as plt
 
 # Set page title, tab title, and icon
 st.set_page_config(page_title="Supply Chain with Blockchain", page_icon="🔗")
@@ -23,7 +24,7 @@ SMART_CONTRACTS = {
     }
 }
 
-# Address to role mapping
+# Address roles
 ADDRESS_TO_ROLE = {
     '0xd5523fdb700a9e836dcaf1110e365e803eae71aa': 'Produsen Banana',
     '0x488fd778a4c1a866a6ca6c05a4e1e00d8cf7f8da': 'Produsen Dragon Fruit',
@@ -57,17 +58,21 @@ def fetch_image_from_url(url):
     img = Image.open(BytesIO(response.content))
     return img
 
-def get_holders_data(token):
-    # Sample data; in a real scenario, fetch live data from an API
-    sample_data = [
-        {'Rank': 1, 'Address': '0xbd4be1bd11cd18513b3dd44cf2ad7f1c9b762c8a', 'Quantity': 385, 'Percentage': '38.50%'},
-        {'Rank': 2, 'Address': '0x81c1fabd59c68c5b919a547b951a2a600c979fba', 'Quantity': 200, 'Percentage': '20.00%'},
-        # Add more sample rows as needed
-    ]
-    # Add the role based on the address
-    for holder in sample_data:
-        holder['Role'] = ADDRESS_TO_ROLE.get(holder['Address'].lower(), 'Unknown')
-    return sample_data
+def display_pie_chart(data):
+    labels = [ADDRESS_TO_ROLE.get(address, address) for address in data.keys()]
+    sizes = data.values()
+    plt.figure(figsize=(6,6))
+    plt.pie(sizes, labels=labels, autopct='%1.1f%%')
+    st.pyplot(plt)
+
+# Example token holder data for pie chart demonstration
+EXAMPLE_HOLDER_DATA = {
+    '0xbD4bE1bD11CD18513b3dd44CF2aD7F1c9b762C8a': 385,
+    '0xbE886552107a1C26EEA37C0af1C6108e0b5f35ab': 330,
+    '0x81C1faBd59c68C5B919a547b951a2a600c979fBA': 205,
+    '0x13a4667Ce9A4DcB01b16215FDfbF145622FC3Eb5': 45,
+    '0xCa0C515f6E6D75306C0E312EE11d0873d6133866': 35
+}
 
 # Page title
 st.title('Token Holders Viewer for Supply Chain Blockchain')
@@ -76,7 +81,8 @@ st.title('Token Holders Viewer for Supply Chain Blockchain')
 contract_options = ['None'] + list(SMART_CONTRACTS.keys())
 selected_contract = st.selectbox('Select a Smart Contract', contract_options)
 
-if selected_contract != 'None':
+# Button to confirm selection
+if st.button("View Details") and selected_contract != 'None':
     # Get selected contract details
     token_holder_url = SMART_CONTRACTS[selected_contract]['holders']
     pie_chart_url = SMART_CONTRACTS[selected_contract]['pie_chart']
@@ -91,16 +97,8 @@ if selected_contract != 'None':
     st.image(buffer_qr.getvalue(), use_column_width=True)
     st.write("Scan the QR code to view the token holders on Etherscan.")
     
-    # Fetch and display pie chart for the selected contract
+    # Display example pie chart based on EXAMPLE_HOLDER_DATA
     st.write("**Token Holder Distribution Pie Chart**")
-    try:
-        pie_chart_img = fetch_image_from_url(pie_chart_url)
-        st.image(pie_chart_img, caption="Token Holder Pie Chart", use_column_width=True)
-    except:
-        st.write("Unable to fetch the pie chart. Please check the link manually.")
-    
-    # Display token holders data in a table
-    st.write("**Token Holders Data**")
-    holders_data = get_holders_data(selected_contract)
-    st.write("Here is the holder's data with assigned roles based on addresses.")
-    st.table(holders_data)
+    display_pie_chart(EXAMPLE_HOLDER_DATA)
+else:
+    st.write("Please select a contract and press 'View Details'.")

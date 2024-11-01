@@ -1,6 +1,8 @@
 import streamlit as st
 import qrcode
 from io import BytesIO
+import requests
+from PIL import Image
 
 # Set page title, tab title, and icon
 st.set_page_config(page_title="Supply Chain with Blockchain", page_icon="🔗")
@@ -34,6 +36,11 @@ def generate_qr_code(data, size=200):
     img = img.resize((size, size))  # Resize QR Code to desired size
     return img
 
+def fetch_image_from_url(url):
+    response = requests.get(url)
+    img = Image.open(BytesIO(response.content))
+    return img
+
 # Page title
 st.title('Token Holders Viewer for Supply Chain Blockchain')
 
@@ -56,6 +63,10 @@ if selected_contract != 'None':
     st.image(buffer_qr.getvalue(), use_column_width=True)
     st.write("Scan the QR code to view the token holders on Etherscan.")
     
-    # Display link to the pie chart for the selected contract
+    # Fetch and display pie chart for the selected contract
     st.write("**Token Holder Distribution Pie Chart**")
-    st.markdown(f"[View Pie Chart for {selected_contract}]({pie_chart_url})")
+    try:
+        pie_chart_img = fetch_image_from_url(pie_chart_url)
+        st.image(pie_chart_img, caption="Token Holder Pie Chart", use_column_width=True)
+    except:
+        st.write("Unable to fetch the pie chart. Please check the link manually.")

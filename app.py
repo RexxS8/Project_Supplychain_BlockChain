@@ -64,10 +64,10 @@ def get_token_data(url):
     soup = BeautifulSoup(response.content, 'html.parser')
     holders_data = {}
     
-    # Replace with actual HTML tag classes after inspecting Etherscan page structure
-    for row in soup.find_all("div", class_="your_data_row_class_here"):
-        address = row.find("span", class_="your_address_class_here").text.strip()
-        quantity = int(row.find("span", class_="your_quantity_class_here").text.replace(",", ""))
+    # Replace "address_class" and "quantity_class" with actual class names from Etherscan
+    for row in soup.find_all("div", class_="address_class"):
+        address = row.find("span", class_="address_class").text.strip()
+        quantity = int(row.find("span", class_="quantity_class").text.replace(",", ""))
         holders_data[address] = quantity
     
     return holders_data
@@ -75,7 +75,7 @@ def get_token_data(url):
 def display_pie_chart(data):
     labels = [ADDRESS_TO_ROLE.get(address, address) for address in data.keys()]
     sizes = data.values()
-    plt.figure(figsize=(6,6))
+    plt.figure(figsize=(6, 6))
     plt.pie(sizes, labels=labels, autopct='%1.1f%%')
     st.pyplot(plt)
 
@@ -88,11 +88,8 @@ selected_contract = st.selectbox('Select a Smart Contract', contract_options)
 
 # Button to confirm selection
 if st.button("View Details") and selected_contract != 'None':
-    # Get selected contract details
+    # Display QR code for the selected token holder link
     token_holder_url = SMART_CONTRACTS[selected_contract]['holders']
-    pie_chart_url = SMART_CONTRACTS[selected_contract]['pie_chart']
-    
-    # Generate and display QR Code for token holder link
     qr_code = generate_qr_code(token_holder_url, size=200)
     buffer_qr = BytesIO()
     qr_code.save(buffer_qr, format="PNG")
@@ -102,9 +99,13 @@ if st.button("View Details") and selected_contract != 'None':
     st.image(buffer_qr.getvalue(), use_column_width=True)
     st.write("Scan the QR code to view the token holders on Etherscan.")
     
-    # Fetch real token data and display pie chart
+    # Fetch token data and display pie chart
     holder_data = get_token_data(token_holder_url)
-    st.write("**Token Holder Distribution Pie Chart**")
-    display_pie_chart(holder_data)
+    if holder_data:
+        st.write("**Token Holder Distribution Pie Chart**")
+        display_pie_chart(holder_data)
+    else:
+        st.write("No data found for token holders. Please check the URL structure or inspect the HTML tags.")
 else:
     st.write("Please select a contract and press 'View Details'.")
+

@@ -5,3 +5,4 @@ plotly
 qrcode[pil]
 Pillow
 pytz
+matplotlib

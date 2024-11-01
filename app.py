@@ -1,31 +1,28 @@
 import streamlit as st
-import qrcode
-from io import BytesIO
 import requests
-from bs4 import BeautifulSoup
+import plotly.express as px
+import pandas as pd
+import qrcode
 from PIL import Image
-import matplotlib.pyplot as plt
+from io import BytesIO
+from datetime import datetime, timedelta
+import pytz
+import base64
 
 # Set page title, tab title, and icon
 st.set_page_config(page_title="Supply Chain with Blockchain", page_icon="🔗")
 
-# Smart contract holder and pie chart links
+# Replace with your own Etherscan API key
+ETHERSCAN_API_KEY = '72ZYQBUT6BKEG7TTJ3EDEV1TW7WEKWKW6I'
+
+# Smart contract addresses
 SMART_CONTRACTS = {
-    'BANANA': {
-        'holders': 'https://sepolia.etherscan.io/token/0x890714f0269861582be8cbad83aaa3e059eb0b22#balances',
-        'pie_chart': 'https://sepolia.etherscan.io/token/tokenholderchart/0x890714f0269861582be8cbad83aaa3e059eb0b22'
-    },
-    'DRAGON FRUIT': {
-        'holders': 'https://sepolia.etherscan.io/token/0x0e8c2758bd0abd12020fc626aa703f4a70519d10#balances',
-        'pie_chart': 'https://sepolia.etherscan.io/token/tokenholderchart/0x0e8c2758bd0abd12020fc626aa703f4a70519d10'
-    },
-    'PAPAYA': {
-        'holders': 'https://sepolia.etherscan.io/token/0x93688eb37df5479d15034f9d0e20f07c3ead3ad1#balances',
-        'pie_chart': 'https://sepolia.etherscan.io/token/tokenholderchart/0x93688eb37df5479d15034f9d0e20f07c3ead3ad1'
-    }
+    'BANANA': '0x890714f0269861582be8cbad83aaa3e059eb0b22',
+    'DRAGON FRUIT': '0x0e8c2758bd0abd12020fc626aa703f4a70519d10',
+    'PAPAYA': '0x93688eb37df5479d15034f9d0e20f07c3ead3ad1'
 }
 
-# Address roles
+# Detailed mapping of Ethereum addresses to supply chain roles
 ADDRESS_TO_ROLE = {
     '0xd5523fdb700a9e836dcaf1110e365e803eae71aa': 'Produsen Banana',
     '0x488fd778a4c1a866a6ca6c05a4e1e00d8cf7f8da': 'Produsen Dragon Fruit',
@@ -41,6 +38,30 @@ ADDRESS_TO_ROLE = {
     '0x0000000000000000000000000000000000000000': 'Minting/Burn',
 }
 
+# Smart contract creators and their proof hashes
+CONTRACT_CREATORS = {
+    'BANANA': {
+        'creator': 'Produsen Banana',
+        'hash': '0x0fb39897123a03c085456a7cc56bd98d516e6ba8249c5d1bef17256da6e82c4d'
+    },
+    'DRAGON FRUIT': {
+        'creator': 'Produsen Dragon Fruit',
+        'hash': '0x4d24a4856a563df259cbcdc2a6b61fa8c097998831af4af93ae4e94776c7ea89'
+    },
+    'PAPAYA': {
+        'creator': 'Produsen Papaya',
+        'hash': '0xf3fda77d6a88a8e54973632bd943de63d8e913dddf35ddd5b307afc42965c547'
+    }
+}
+
+def get_transactions(token_address, api_key):
+    url = f'https://api-sepolia.etherscan.io/api?module=account&action=tokentx&contractaddress={token_address}&apikey={api_key}'
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        return None
+
 def generate_qr_code(data, size=200):
     qr = qrcode.QRCode(
         version=1,
@@ -54,58 +75,132 @@ def generate_qr_code(data, size=200):
     img = img.resize((size, size))  # Resize QR Code to desired size
     return img
 
-def fetch_image_from_url(url):
-    response = requests.get(url)
-    img = Image.open(BytesIO(response.content))
-    return img
+# Function to convert UTC to WIB
+def convert_to_wib(utc_time):
+    utc = pytz.utc
+    wib = pytz.timezone('Asia/Jakarta')
+    utc_dt = utc.localize(utc_time)
+    wib_dt = utc_dt.astimezone(wib)
+    formatted_time = wib_dt.strftime('%b-%d-%Y %I:%M:%S %p')
+    return formatted_time
 
-def get_token_data(url):
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
-    holders_data = {}
-    
-    # Replace "address_class" and "quantity_class" with actual class names from Etherscan
-    for row in soup.find_all("div", class_="address_class"):
-        address = row.find("span", class_="address_class").text.strip()
-        quantity = int(row.find("span", class_="quantity_class").text.replace(",", ""))
-        holders_data[address] = quantity
-    
-    return holders_data
+# Load CSS file
+with open("style.css", "r", encoding="utf-8") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-def display_pie_chart(data):
-    labels = [ADDRESS_TO_ROLE.get(address, address) for address in data.keys()]
-    sizes = data.values()
-    plt.figure(figsize=(6, 6))
-    plt.pie(sizes, labels=labels, autopct='%1.1f%%')
-    st.pyplot(plt)
+# Load JavaScript file
+with open("script.js", "r", encoding="utf-8") as f:
+    st.markdown(f"<script>{f.read()}</script>", unsafe_allow_html=True)
 
 # Page title
-st.title('Token Holders Viewer for Supply Chain Blockchain')
+st.title('Etherscan Token Transactions Viewer')
 
 # Dropdown menu for selecting smart contract
 contract_options = ['None'] + list(SMART_CONTRACTS.keys())
 selected_contract = st.selectbox('Select a Smart Contract', contract_options)
+token_address = SMART_CONTRACTS.get(selected_contract) if selected_contract != 'None' else None
 
-# Button to confirm selection
-if st.button("View Details") and selected_contract != 'None':
-    # Display QR code for the selected token holder link
-    token_holder_url = SMART_CONTRACTS[selected_contract]['holders']
-    qr_code = generate_qr_code(token_holder_url, size=200)
-    buffer_qr = BytesIO()
-    qr_code.save(buffer_qr, format="PNG")
-    
-    st.write(f"**Holder Information for {selected_contract}**")
-    st.markdown(f"[View Token Holders on Etherscan]({token_holder_url})")
-    st.image(buffer_qr.getvalue(), use_column_width=True)
-    st.write("Scan the QR code to view the token holders on Etherscan.")
-    
-    # Fetch token data and display pie chart
-    holder_data = get_token_data(token_holder_url)
-    if holder_data:
-        st.write("**Token Holder Distribution Pie Chart**")
-        display_pie_chart(holder_data)
-    else:
-        st.write("No data found for token holders. Please check the URL structure or inspect the HTML tags.")
-else:
-    st.write("Please select a contract and press 'View Details'.")
+if token_address:
+    if st.button('Show Transaction Details'):
+        transactions_data = get_transactions(token_address, ETHERSCAN_API_KEY)
 
+        if transactions_data and transactions_data.get('status') == '1':
+            transactions = transactions_data['result']
+            st.write(f"Total Transactions: {len(transactions)}")
+
+             # Display smart contract creator information
+            creator_info = CONTRACT_CREATORS.get(selected_contract, {})
+            st.write(f"**Creator Smart Contract {selected_contract}**")
+            st.write(f"- **Creator:** {creator_info.get('creator')}")
+            st.write(f"- **Proof Hash:** {creator_info.get('hash')}")
+            st.write(f"")
+            st.write(f"")
+
+            # Prepare data for the chart
+            transactions_df = pd.DataFrame(transactions)
+            transactions_df['timeStamp'] = pd.to_datetime(transactions_df['timeStamp'], unit='s')
+            transactions_df['value'] = transactions_df['value'].astype(float) / 10**1  # Adjust for 1 decimal place
+
+            # Rename 'from' and 'to' columns to avoid conflicts
+            transactions_df.rename(columns={'from': 'from_address', 'to': 'to_address'}, inplace=True)
+
+            # Normalize the case of addresses
+            transactions_df['from_address'] = transactions_df['from_address'].str.lower()
+            transactions_df['to_address'] = transactions_df['to_address'].str.lower()
+
+            # Convert timestamp to WIB and format it
+            transactions_df['formatted_timeStamp'] = transactions_df['timeStamp'].apply(convert_to_wib)
+
+            # Map addresses to supply chain roles
+            transactions_df['from_role'] = transactions_df['from_address'].map(ADDRESS_TO_ROLE).fillna('Unknown')
+            transactions_df['to_role'] = transactions_df['to_address'].map(ADDRESS_TO_ROLE).fillna('Unknown')
+
+            # Generate QR Code for the token address
+            etherscan_url = f"https://sepolia.etherscan.io/token/{token_address}"
+            qr_code = generate_qr_code(etherscan_url, size=200)
+            buffer_qr = BytesIO()
+            qr_code.save(buffer_qr, format="PNG")
+            
+            # Aggregate the token holdings by 'to_role'
+            holders_df = transactions_df.groupby('to_role')['value'].sum().reset_index()
+            holders_df = holders_df.rename(columns={'to_role': 'Role', 'value': 'Total Tokens'})
+
+            # Plotly pie chart
+            fig = px.pie(holders_df, values='Total Tokens', names='Role', title='Token Distribution among Holders')
+            
+            # Create two columns for QR Code and Pie Chart
+            col1, col2 = st.columns([1, 2])
+
+            with col1:
+                st.image(buffer_qr.getvalue(), use_column_width=True)
+
+            with col2:
+                st.plotly_chart(fig, use_container_width=True)
+
+            # Display transaction details
+            st.markdown('<div class="stHeader">Transaction Details</div>', unsafe_allow_html=True)
+            st.markdown('<div class="stTransactionDetails">', unsafe_allow_html=True)
+            for tx in transactions_df.itertuples():
+                value_display = "{:,.1f} buah".format(tx.value)  # Format the value with commas and one decimal place
+                transaction_link = f"https://sepolia.etherscan.io/tx/{tx.hash}"
+
+                # Generate QR Code for the transaction link
+                qr_code = generate_qr_code(transaction_link, size=100)
+                buffer_qr = BytesIO()
+                qr_code.save(buffer_qr, format="PNG")
+    
+                # Fetch transaction details for block confirmations
+                block_details_url = f'https://api-sepolia.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash={tx.hash}&apikey={ETHERSCAN_API_KEY}'
+                block_details_response = requests.get(block_details_url)
+                block_details = block_details_response.json()
+
+                # Check if 'result' key exists in block_details
+                if block_details.get('status') == '1' and 'result' in block_details:
+                    block_number = block_details['result'].get('blockNumber', 'Block Confirmed')
+                    latest_block_url = f'https://api-sepolia.etherscan.io/api?module=proxy&action=eth_blockNumber&apikey={ETHERSCAN_API_KEY}'
+                    latest_block_response = requests.get(latest_block_url)
+                    latest_block = latest_block_response.json()
+
+                    if latest_block.get('status') == '1' and 'result' in latest_block:
+                        block_number = int(block_number, 16) if block_number != 'Block Confirmed' else 'Block Confirmed'
+                        latest_block_number = int(latest_block['result'], 16)
+                        block_confirmations = latest_block_number - block_number if block_number != 'Block Confirmed' else 'Block Confirmed'
+                    else:
+                        block_confirmations = 'Block Confirmed'
+                else:
+                    block_confirmations = 'Block Confirmed'
+
+                # Display transaction details with QR code
+                st.markdown(f'''
+                    <div class="stCard">
+                        <h2>Transaction Hash: <a href="{transaction_link}" target="_blank">{tx.hash}</a></h2>
+                        <p>From: {tx.from_role}</p>
+                        <p>To: {tx.to_role}</p>
+                        <p>Value: {value_display}</p>
+                        <p>Token Symbol: {tx.tokenSymbol}</p>
+                        <p>Time: {tx.formatted_timeStamp}</p>
+                        <p>Confirmations: {block_confirmations}</p>
+                        <p><img src="data:image/png;base64,{base64.b64encode(buffer_qr.getvalue()).decode()}" alt="QR Code"></p>
+                    </div>
+                ''', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)

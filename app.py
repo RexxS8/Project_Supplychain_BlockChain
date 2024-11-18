@@ -19,7 +19,7 @@ ETHERSCAN_API_KEY = '92R6XTTEVSQTBE59VN926HB18XN9D54GZ2'
 SMART_CONTRACTS = {
     'BANANA': '0x890714f0269861582be8cbad83aaa3e059eb0b22',
     'DRAGON FRUIT': '0x0E8c2758bd0aBd12020FC626Aa703f4a70519D10',
-    'PAPAYA': '0x93688eB37df5479d15034F9d0e20F07c3eAd3Ad1'
+    # 'PAPAYA': '0x93688eB37df5479d15034F9d0e20F07c3eAd3Ad1'
 }
 
 # Detailed mapping of Ethereum addresses to supply chain roles
@@ -35,7 +35,7 @@ ADDRESS_TO_ROLE = {
     '0xca0c515f6e6d75306c0e312ee11d0873d6133866': 'Retail 2',
     '0x13a4667ce9a4dcb01b16215fdfbf145622fc3eb5': 'Restaurant A',
     '0x3408c665f2298d7cafcbd4350d67d2833264b294': 'Restaurant B',
-    '0x0000000000000000000000000000000000000000': 'Minting/Burn',
+    # '0x0000000000000000000000000000000000000000': 'Minting/Burn',
 }
 
 # Smart contract creators and their proof hashes
@@ -48,10 +48,10 @@ CONTRACT_CREATORS = {
         'creator': 'Produsen Dragon Fruit',
         'hash': '0x4d24a4856a563df259cbcdc2a6b61fa8c097998831af4af93ae4e94776c7ea89'
     },
-    'PAPAYA': {
-        'creator': 'Produsen Papaya',
-        'hash': '0xf3fda77d6a88a8e54973632bd943de63d8e913dddf35ddd5b307afc42965c547'
-    }
+    # 'PAPAYA': {
+    #     'creator': 'Produsen Papaya',
+    #     'hash': '0xf3fda77d6a88a8e54973632bd943de63d8e913dddf35ddd5b307afc42965c547'
+    # }
 }
 
 # Semua fungsi utility tetap sama sesuai kode awal

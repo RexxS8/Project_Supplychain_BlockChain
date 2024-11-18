@@ -13,7 +13,7 @@ import base64
 st.set_page_config(page_title="Supply Chain with Blockchain", page_icon="🔗")
 
 # Replace with your own Etherscan API key
-ETHERSCAN_API_KEY = '72ZYQBUT6BKEG7TTJ3EDEV1TW7WEKWKW6I'
+ETHERSCAN_API_KEY = '92R6XTTEVSQTBE59VN926HB18XN9D54GZ2'
 
 # Smart contract addresses
 SMART_CONTRACTS = {
@@ -55,6 +55,7 @@ CONTRACT_CREATORS = {
 }
 
 # Semua fungsi utility tetap sama sesuai kode awal
+@st.cache_data
 def get_transactions(token_address, api_key):
     url = f'https://api-sepolia.etherscan.io/api?module=account&action=tokentx&contractaddress={token_address}&apikey={api_key}'
     response = requests.get(url)
@@ -63,6 +64,7 @@ def get_transactions(token_address, api_key):
     else:
         return None
 
+@st.cache_data
 def get_token_balance(contract_address, wallet_address, api_key):
     url = f'https://api-sepolia.etherscan.io/api?module=account&action=tokenbalance&contractaddress={contract_address}&address={wallet_address}&tag=latest&apikey={api_key}'
     response = requests.get(url)
@@ -110,11 +112,12 @@ token_address = SMART_CONTRACTS.get(selected_contract) if selected_contract != '
 
 if token_address:
     if st.button('Show Transaction / Refresh Transaction'):
-        transactions_data = get_transactions(token_address, ETHERSCAN_API_KEY)
+        with st.spinner('Fetching transactions...'):
+            transactions_data = get_transactions(token_address, ETHERSCAN_API_KEY)
 
         if transactions_data and transactions_data.get('status') == '1':
             transactions = transactions_data['result']
-            st.write(f"Total Transactions: {len(transactions)}")
+            st.success(f"Total Transactions: {len(transactions)}")
 
             # Display smart contract creator information
             creator_info = CONTRACT_CREATORS.get(selected_contract, {})
@@ -139,7 +142,7 @@ if token_address:
             transactions_df['from_role'] = transactions_df['from_address'].map(ADDRESS_TO_ROLE).fillna('Unknown')
             transactions_df['to_role'] = transactions_df['to_address'].map(ADDRESS_TO_ROLE).fillna('Unknown')
 
-            # Fetch balances and map to roles
+            # Fetch balances by address
             unique_addresses = transactions_df['to_address'].unique()
             address_to_balance = {
                 address: round(get_token_balance(token_address, address, ETHERSCAN_API_KEY) / 10, 1) for address in unique_addresses
@@ -154,9 +157,6 @@ if token_address:
                 .reset_index()
                 .rename(columns={'role': 'Role', 'balance': 'Total Tokens'})
             )
-
-            # Pastikan kolom Total Tokens berbentuk float dengan 1 desimal
-            role_balances['Total Tokens'] = role_balances['Total Tokens'].astype(float).round(1)
 
             # Plotly pie chart
             fig = px.pie(role_balances, values='Total Tokens', names='Role', title='Token Distribution')
@@ -187,29 +187,7 @@ if token_address:
                 buffer_qr = BytesIO()
                 qr_code.save(buffer_qr, format="PNG")
 
-                # Fetch block confirmations
-                block_details_url = f'https://api-sepolia.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash={tx.hash}&apikey={ETHERSCAN_API_KEY}'
-                block_details_response = requests.get(block_details_url)
-                block_details = block_details_response.json()
-                block_number = block_details['result'].get('blockNumber') if block_details.get('result') else None
-
-                if block_number:
-                    latest_block_url = f'https://api-sepolia.etherscan.io/api?module=proxy&action=eth_blockNumber&apikey={ETHERSCAN_API_KEY}'
-                    latest_block_response = requests.get(latest_block_url)
-                    latest_block = latest_block_response.json()
-
-                    try:
-                        # Pastikan bahwa latest_block memiliki kunci 'result' dan nilainya valid
-                        latest_block_number = int(latest_block['result'], 16) if 'result' in latest_block and latest_block['result'] else None
-                        block_confirmations = (
-                            latest_block_number - int(block_number, 16) if latest_block_number and block_number else 'Block Confirmed'
-                            )
-                    except (ValueError, TypeError):
-                        block_confirmations = 'Block Confirmed'
-                else:
-                    block_confirmations = 'Block Confirmed'
-
-                # Render transaction details in card-like format with fixed hash box
+                # Render transaction details in card-like format
                 st.markdown(f'''
                 <div style="background-color: #f9f9f9; padding: 20px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd;">
                     <h3 style="font-size: 16px; word-wrap: break-word; overflow-wrap: break-word; margin-bottom: 5px;">Transaction Hash:</h3>
@@ -221,7 +199,7 @@ if token_address:
                     <p><strong>Value:</strong> {value_display}</p>
                     <p><strong>Token Symbol:</strong> {tx.tokenSymbol}</p>
                     <p><strong>Time:</strong> {convert_to_wib(tx.timeStamp)}</p>
-                    <p><strong>Confirmations:</strong> {block_confirmations}</p>
+                    <p><strong>Block Confirmations:</strong> {tx.confirmations}</p>
                     <img src="data:image/png;base64,{base64.b64encode(buffer_qr.getvalue()).decode()}" alt="QR Code" style="display: block; margin: 10px auto;"/>
                 </div>
                 ''', unsafe_allow_html=True)

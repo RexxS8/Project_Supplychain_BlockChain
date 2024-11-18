@@ -13,7 +13,7 @@ import base64
 st.set_page_config(page_title="Supply Chain with Blockchain", page_icon="🔗")
 
 # Replace with your own Etherscan API key
-ETHERSCAN_API_KEY = '92R6XTTEVSQTBE59VN926HB18XN9D54GZ2'
+ETHERSCAN_API_KEY = '72ZYQBUT6BKEG7TTJ3EDEV1TW7WEKWKW6I'
 
 # Smart contract addresses
 SMART_CONTRACTS = {

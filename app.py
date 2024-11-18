@@ -197,10 +197,15 @@ if token_address:
                     latest_block_url = f'https://api-sepolia.etherscan.io/api?module=proxy&action=eth_blockNumber&apikey={ETHERSCAN_API_KEY}'
                     latest_block_response = requests.get(latest_block_url)
                     latest_block = latest_block_response.json()
-                    latest_block_number = int(latest_block['result'], 16) if 'result' in latest_block else None
-                    block_confirmations = (
-                        latest_block_number - int(block_number, 16) if latest_block_number and block_number else 'Block Confirmed'
-                    )
+
+                    try:
+                        # Pastikan bahwa latest_block memiliki kunci 'result' dan nilainya valid
+                        latest_block_number = int(latest_block['result'], 16) if 'result' in latest_block and latest_block['result'] else None
+                        block_confirmations = (
+                            latest_block_number - int(block_number, 16) if latest_block_number and block_number else 'Block Confirmed'
+                            )
+                    except (ValueError, TypeError):
+                        block_confirmations = 'Block Confirmed'
                 else:
                     block_confirmations = 'Block Confirmed'
 

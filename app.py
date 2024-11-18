@@ -64,7 +64,6 @@ def get_transactions(token_address, api_key):
     else:
         return None
 
-@st.cache_data
 def get_token_balance(contract_address, wallet_address, api_key):
     url = f'https://api-sepolia.etherscan.io/api?module=account&action=tokenbalance&contractaddress={contract_address}&address={wallet_address}&tag=latest&apikey={api_key}'
     response = requests.get(url)
@@ -110,15 +109,22 @@ contract_options = ['None'] + list(SMART_CONTRACTS.keys())
 selected_contract = st.selectbox('Select a Smart Contract', contract_options)
 token_address = SMART_CONTRACTS.get(selected_contract) if selected_contract != 'None' else None
 
+# Tombol untuk menghapus cache secara manual
+if st.button('Clear Cache'):
+    st.cache_data.clear()
+    st.success("Cache cleared! Please refresh the data.")
+
+# Main Functionality
 if token_address:
     if st.button('Show Transaction / Refresh Transaction'):
+        # Ambil data transaksi
         with st.spinner('Fetching transactions...'):
             transactions_data = get_transactions(token_address, ETHERSCAN_API_KEY)
 
         if transactions_data and transactions_data.get('status') == '1':
             transactions = transactions_data['result']
             st.success(f"Total Transactions: {len(transactions)}")
-
+        
             # Display smart contract creator information
             creator_info = CONTRACT_CREATORS.get(selected_contract, {})
             st.write(f"**Creator Smart Contract {selected_contract}**")
@@ -191,7 +197,7 @@ if token_address:
                 st.markdown(f'''
                 <div style="background-color: #f9f9f9; padding: 20px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd;">
                     <h3 style="font-size: 16px; word-wrap: break-word; overflow-wrap: break-word; margin-bottom: 5px;">Transaction Hash:</h3>
-                    <p style="font-size: 20px; word-wrap: break-word; overflow-wrap: break-word; color: blue; margin: 10;">
+                    <p style="font-size: 14px; word-wrap: break-word; overflow-wrap: break-word; color: blue; margin: 0;">
                         <a href="{transaction_link}" target="_blank" style="text-decoration: none; color: blue;">{tx.hash}</a>
                     </p>
                     <p><strong>From:</strong> {tx.from_role}</p>
@@ -199,7 +205,7 @@ if token_address:
                     <p><strong>Value:</strong> {value_display}</p>
                     <p><strong>Token Symbol:</strong> {tx.tokenSymbol}</p>
                     <p><strong>Time:</strong> {convert_to_wib(tx.timeStamp)}</p>
-                    <p><strong>Block Confirmations:</strong> {tx.confirmations}</p>
+                    <p><strong>Confirmations:</strong> {tx.confirmations}</p>
                     <img src="data:image/png;base64,{base64.b64encode(buffer_qr.getvalue()).decode()}" alt="QR Code" style="display: block; margin: 10px auto;"/>
                 </div>
                 ''', unsafe_allow_html=True)

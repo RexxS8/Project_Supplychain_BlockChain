@@ -18,8 +18,8 @@ ETHERSCAN_API_KEY = '72ZYQBUT6BKEG7TTJ3EDEV1TW7WEKWKW6I'
 # Smart contract addresses
 SMART_CONTRACTS = {
     'BANANA': '0x890714f0269861582be8cbad83aaa3e059eb0b22',
-    'DRAGON FRUIT': '0x0e8c2758bd0abd12020fc626aa703f4a70519d10',
-    'PAPAYA': '0x93688eb37df5479d15034f9d0e20f07c3ead3ad1'
+    'DRAGON FRUIT': '0x0E8c2758bd0aBd12020FC626Aa703f4a70519D10',
+    'PAPAYA': '0x93688eB37df5479d15034F9d0e20F07c3eAd3Ad1'
 }
 
 # Detailed mapping of Ethereum addresses to supply chain roles
@@ -54,6 +54,7 @@ CONTRACT_CREATORS = {
     }
 }
 
+# Semua fungsi utility tetap sama sesuai kode awal
 def get_transactions(token_address, api_key):
     url = f'https://api-sepolia.etherscan.io/api?module=account&action=tokentx&contractaddress={token_address}&apikey={api_key}'
     response = requests.get(url)
@@ -61,6 +62,23 @@ def get_transactions(token_address, api_key):
         return response.json()
     else:
         return None
+
+def get_token_balance(contract_address, wallet_address, api_key):
+    url = f'https://api-sepolia.etherscan.io/api?module=account&action=tokenbalance&contractaddress={contract_address}&address={wallet_address}&tag=latest&apikey={api_key}'
+    response = requests.get(url)
+    if response.status_code == 200 and response.json().get('status') == '1':
+        balance = response.json().get('result', '0')
+        return float(balance)
+    else:
+        return 0
+
+def convert_to_wib(utc_time):
+    utc = pytz.utc
+    wib = pytz.timezone('Asia/Jakarta')
+    utc_dt = utc.localize(utc_time)
+    wib_dt = utc_dt.astimezone(wib)
+    formatted_time = wib_dt.strftime('%b-%d-%Y %I:%M:%S %p')
+    return formatted_time
 
 def generate_qr_code(data, size=200):
     qr = qrcode.QRCode(
@@ -72,17 +90,8 @@ def generate_qr_code(data, size=200):
     qr.add_data(data)
     qr.make(fit=True)
     img = qr.make_image(fill='black', back_color='white')
-    img = img.resize((size, size))  # Resize QR Code to desired size
+    img = img.resize((size, size))
     return img
-
-# Function to convert UTC to WIB
-def convert_to_wib(utc_time):
-    utc = pytz.utc
-    wib = pytz.timezone('Asia/Jakarta')
-    utc_dt = utc.localize(utc_time)
-    wib_dt = utc_dt.astimezone(wib)
-    formatted_time = wib_dt.strftime('%b-%d-%Y %I:%M:%S %p')
-    return formatted_time
 
 # Load CSS file
 with open("style.css", "r", encoding="utf-8") as f:
@@ -92,23 +101,22 @@ with open("style.css", "r", encoding="utf-8") as f:
 with open("script.js", "r", encoding="utf-8") as f:
     st.markdown(f"<script>{f.read()}</script>", unsafe_allow_html=True)
 
-# Page title
+# Streamlit main content
 st.title('Etherscan Token Transactions Viewer')
 
-# Dropdown menu for selecting smart contract
 contract_options = ['None'] + list(SMART_CONTRACTS.keys())
 selected_contract = st.selectbox('Select a Smart Contract', contract_options)
 token_address = SMART_CONTRACTS.get(selected_contract) if selected_contract != 'None' else None
 
 if token_address:
-    if st.button('Show Transaction Details'):
+    if st.button('Show Transaction / Refresh Transaction'):
         transactions_data = get_transactions(token_address, ETHERSCAN_API_KEY)
 
         if transactions_data and transactions_data.get('status') == '1':
             transactions = transactions_data['result']
             st.write(f"Total Transactions: {len(transactions)}")
 
-             # Display smart contract creator information
+            # Display smart contract creator information
             creator_info = CONTRACT_CREATORS.get(selected_contract, {})
             st.write(f"**Creator Smart Contract {selected_contract}**")
             st.write(f"- **Creator:** {creator_info.get('creator')}")
@@ -116,91 +124,100 @@ if token_address:
             st.write(f"")
             st.write(f"")
 
-            # Prepare data for the chart
+            # Data preparation
             transactions_df = pd.DataFrame(transactions)
             transactions_df['timeStamp'] = pd.to_datetime(transactions_df['timeStamp'], unit='s')
-            transactions_df['value'] = transactions_df['value'].astype(float) / 10**1  # Adjust for 1 decimal place
 
-            # Rename 'from' and 'to' columns to avoid conflicts
-            transactions_df.rename(columns={'from': 'from_address', 'to': 'to_address'}, inplace=True)
+            # Ubah nilai menjadi float dengan desimal satu tempat (contoh: 5300 -> 530.0)
+            transactions_df['value'] = (transactions_df['value'].astype(float) / 10).round(1)
 
-            # Normalize the case of addresses
-            transactions_df['from_address'] = transactions_df['from_address'].str.lower()
-            transactions_df['to_address'] = transactions_df['to_address'].str.lower()
+            # Normalize address case
+            transactions_df['from_address'] = transactions_df['from'].str.lower()
+            transactions_df['to_address'] = transactions_df['to'].str.lower()
 
-            # Convert timestamp to WIB and format it
-            transactions_df['formatted_timeStamp'] = transactions_df['timeStamp'].apply(convert_to_wib)
-
-            # Map addresses to supply chain roles
+            # Map roles to addresses
             transactions_df['from_role'] = transactions_df['from_address'].map(ADDRESS_TO_ROLE).fillna('Unknown')
             transactions_df['to_role'] = transactions_df['to_address'].map(ADDRESS_TO_ROLE).fillna('Unknown')
 
-            # Generate QR Code for the token address
-            etherscan_url = f"https://sepolia.etherscan.io/token/{token_address}"
-            qr_code = generate_qr_code(etherscan_url, size=200)
-            buffer_qr = BytesIO()
-            qr_code.save(buffer_qr, format="PNG")
-            
-            # Aggregate the token holdings by 'to_role'
-            holders_df = transactions_df.groupby('to_role')['value'].sum().reset_index()
-            holders_df = holders_df.rename(columns={'to_role': 'Role', 'value': 'Total Tokens'})
+            # Fetch balances and map to roles
+            unique_addresses = transactions_df['to_address'].unique()
+            address_to_balance = {
+                address: round(get_token_balance(token_address, address, ETHERSCAN_API_KEY) / 10, 1) for address in unique_addresses
+            }
+
+            # Summarize balances by role
+            role_balances = (
+                pd.DataFrame(list(address_to_balance.items()), columns=['to_address', 'balance'])
+                .assign(role=lambda df: df['to_address'].map(ADDRESS_TO_ROLE).fillna('Unknown'))
+                .groupby('role')['balance']
+                .sum()
+                .reset_index()
+                .rename(columns={'role': 'Role', 'balance': 'Total Tokens'})
+            )
+
+            # Pastikan kolom Total Tokens berbentuk float dengan 1 desimal
+            role_balances['Total Tokens'] = role_balances['Total Tokens'].astype(float).round(1)
 
             # Plotly pie chart
-            fig = px.pie(holders_df, values='Total Tokens', names='Role', title='Token Distribution among Holders')
-            
-            # Create two columns for QR Code and Pie Chart
+            fig = px.pie(role_balances, values='Total Tokens', names='Role', title='Token Distribution')
+
+            # Columns for QR Code and Pie Chart
             col1, col2 = st.columns([1, 2])
 
             with col1:
+                etherscan_url = f"https://sepolia.etherscan.io/token/{token_address}"
+                qr_code = generate_qr_code(etherscan_url)
+                buffer_qr = BytesIO()
+                qr_code.save(buffer_qr, format="PNG")
                 st.image(buffer_qr.getvalue(), use_column_width=True)
 
             with col2:
                 st.plotly_chart(fig, use_container_width=True)
 
             # Display transaction details
-            st.markdown('<div class="stHeader">Transaction Details</div>', unsafe_allow_html=True)
-            st.markdown('<div class="stTransactionDetails">', unsafe_allow_html=True)
+            st.markdown('<div style="text-align: center; font-size: 24px; font-weight: bold; color: white; background-color: purple; padding: 10px; border-radius: 8px;">Transaction Details</div>', unsafe_allow_html=True)
+            st.markdown('<div style="padding: 10px;">', unsafe_allow_html=True)
+
             for tx in transactions_df.itertuples():
-                value_display = "{:,.1f} buah".format(tx.value)  # Format the value with commas and one decimal place
+                value_display = f"{tx.value:,.1f} buah"
                 transaction_link = f"https://sepolia.etherscan.io/tx/{tx.hash}"
 
-                # Generate QR Code for the transaction link
+                # Generate QR Code for transaction link
                 qr_code = generate_qr_code(transaction_link, size=100)
                 buffer_qr = BytesIO()
                 qr_code.save(buffer_qr, format="PNG")
-    
-                # Fetch transaction details for block confirmations
+
+                # Fetch block confirmations
                 block_details_url = f'https://api-sepolia.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash={tx.hash}&apikey={ETHERSCAN_API_KEY}'
                 block_details_response = requests.get(block_details_url)
                 block_details = block_details_response.json()
+                block_number = block_details['result'].get('blockNumber') if block_details.get('result') else None
 
-                # Check if 'result' key exists in block_details
-                if block_details.get('status') == '1' and 'result' in block_details:
-                    block_number = block_details['result'].get('blockNumber', 'Block Confirmed')
+                if block_number:
                     latest_block_url = f'https://api-sepolia.etherscan.io/api?module=proxy&action=eth_blockNumber&apikey={ETHERSCAN_API_KEY}'
                     latest_block_response = requests.get(latest_block_url)
                     latest_block = latest_block_response.json()
-
-                    if latest_block.get('status') == '1' and 'result' in latest_block:
-                        block_number = int(block_number, 16) if block_number != 'Block Confirmed' else 'Block Confirmed'
-                        latest_block_number = int(latest_block['result'], 16)
-                        block_confirmations = latest_block_number - block_number if block_number != 'Block Confirmed' else 'Block Confirmed'
-                    else:
-                        block_confirmations = 'Block Confirmed'
+                    latest_block_number = int(latest_block['result'], 16) if 'result' in latest_block else None
+                    block_confirmations = (
+                        latest_block_number - int(block_number, 16) if latest_block_number and block_number else 'Block Confirmed'
+                    )
                 else:
                     block_confirmations = 'Block Confirmed'
 
-                # Display transaction details with QR code
+                # Render transaction details in card-like format with fixed hash box
                 st.markdown(f'''
-                    <div class="stCard">
-                        <h2>Transaction Hash: <a href="{transaction_link}" target="_blank">{tx.hash}</a></h2>
-                        <p>From: {tx.from_role}</p>
-                        <p>To: {tx.to_role}</p>
-                        <p>Value: {value_display}</p>
-                        <p>Token Symbol: {tx.tokenSymbol}</p>
-                        <p>Time: {tx.formatted_timeStamp}</p>
-                        <p>Confirmations: {block_confirmations}</p>
-                        <p><img src="data:image/png;base64,{base64.b64encode(buffer_qr.getvalue()).decode()}" alt="QR Code"></p>
-                    </div>
+                <div style="background-color: #f9f9f9; padding: 20px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ddd;">
+                    <h3 style="font-size: 16px; word-wrap: break-word; overflow-wrap: break-word; margin-bottom: 5px;">Transaction Hash:</h3>
+                    <p style="font-size: 20px; word-wrap: break-word; overflow-wrap: break-word; color: blue; margin: 10;">
+                        <a href="{transaction_link}" target="_blank" style="text-decoration: none; color: blue;">{tx.hash}</a>
+                    </p>
+                    <p><strong>From:</strong> {tx.from_role}</p>
+                    <p><strong>To:</strong> {tx.to_role}</p>
+                    <p><strong>Value:</strong> {value_display}</p>
+                    <p><strong>Token Symbol:</strong> {tx.tokenSymbol}</p>
+                    <p><strong>Time:</strong> {convert_to_wib(tx.timeStamp)}</p>
+                    <p><strong>Confirmations:</strong> {block_confirmations}</p>
+                    <img src="data:image/png;base64,{base64.b64encode(buffer_qr.getvalue()).decode()}" alt="QR Code" style="display: block; margin: 10px auto;"/>
+                </div>
                 ''', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
